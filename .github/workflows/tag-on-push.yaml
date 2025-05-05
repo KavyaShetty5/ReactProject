@@ -1,0 +1,44 @@
+name: Tag on Push to Master
+
+on:
+  push:
+    branches:
+      - main
+
+jobs:
+  tag:
+    runs-on: ubuntu-latest
+    permissions:
+      contents: write  # Needed to push tags
+
+    steps:
+      - name: Checkout code
+        uses: actions/checkout@v3
+        with:
+          fetch-depth: 0  # Important: fetch all history/tags
+
+      - name: Set up Git
+        run: |
+          git config user.name "github-actions"
+          git config user.email "github-actions@github.com"
+
+      - name: Get latest tag
+        id: get_tag
+        run: |
+          TAG=$(git describe --tags --abbrev=0 || echo "v0.0.0")
+          echo "Latest tag: $TAG"
+          echo "tag=$TAG" >> $GITHUB_OUTPUT
+
+      - name: Bump tag
+        id: bump_tag
+        run: |
+          OLD_TAG=${{ steps.get_tag.outputs.tag }}
+          VERSION=$(echo $OLD_TAG | sed 's/^v//' | awk -F. '{printf "%d.%d.%d", $1, $2, $3 + 1}')
+          NEW_TAG="v$VERSION"
+          echo "New tag: $NEW_TAG"
+          echo "new_tag=$NEW_TAG" >> $GITHUB_OUTPUT
+
+      - name: Create Git tag
+        run: |
+          git tag ${{ steps.bump_tag.outputs.new_tag }}
+          git push origin ${{ steps.bump_tag.outputs.new_tag }}
